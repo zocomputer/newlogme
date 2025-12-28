@@ -1,0 +1,70 @@
+# ulogme Configuration
+# This file controls the behavior of the ulogme tracker daemon
+
+[tracking]
+# All tracking enabled by default - this is your personal data on your local machine
+window_titles = true
+browser_tabs = true      # Track active tab titles
+browser_urls = true      # Track full URLs (useful for categorization)
+keystrokes = true
+
+# Polling interval in seconds for active window checks
+window_poll_interval = 2
+
+# Keystroke aggregation window in seconds
+keystroke_window = 9
+
+[day_boundary]
+# Hour at which a new "logical day" starts (0-23)
+# Late night sessions before this hour count as the previous day
+hour = 7
+
+[database]
+# Path to the DuckDB database file (relative to this config file's directory)
+path = "data/ulogme.duckdb"
+
+[category_mappings]
+# Regex patterns to categorize windows into groups
+# Order matters - first match wins
+# Format: pattern = "category"
+
+[[category_mappings.rules]]
+pattern = "Google Chrome|Firefox|Safari|Arc|Brave"
+category = "Browser"
+
+[[category_mappings.rules]]
+pattern = "VS Code|Visual Studio Code|Cursor|Zed|Sublime|Atom|IntelliJ|PyCharm|WebStorm"
+category = "Coding"
+
+[[category_mappings.rules]]
+pattern = "Terminal|iTerm|Warp|Alacritty|kitty"
+category = "Terminal"
+
+[[category_mappings.rules]]
+pattern = "Slack|Discord|Messages|Telegram|WhatsApp"
+category = "Chat"
+
+[[category_mappings.rules]]
+pattern = "Mail|Outlook|Spark|Airmail"
+category = "Email"
+
+[[category_mappings.rules]]
+pattern = "Figma|Sketch|Adobe|Affinity"
+category = "Design"
+
+[[category_mappings.rules]]
+pattern = "Zoom|Meet|Teams|FaceTime"
+category = "Meetings"
+
+[[category_mappings.rules]]
+pattern = "Notion|Obsidian|Bear|Notes|Roam"
+category = "Notes"
+
+[[category_mappings.rules]]
+pattern = "Spotify|Music|Podcasts"
+category = "Music"
+
+[hacking]
+# Categories considered "focused work" for hacking streak visualization
+categories = ["Coding", "Terminal"]
+

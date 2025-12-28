@@ -4,6 +4,16 @@ import { createServer as createViteServer } from "vite";
 import config from "./zosite.json";
 import { Hono } from "hono";
 import { getRecentRegistrations, createRegistration } from "./backend-lib/db";
+import {
+  getAvailableDates,
+  getDayData,
+  getOverview,
+  getAppUsageForDate,
+  addNote,
+  saveBlog,
+  getSettings,
+  updateSetting,
+} from "./backend-lib/ulogme-db";
 
 type Mode = "development" | "production";
 const app = new Hono();
@@ -33,6 +43,155 @@ app.post("/api/_zo/demo/register", async (c) => {
   const registration = createRegistration(name, email, company, notes);
   return c.json(registration, 201);
 });
+
+// ============================================================================
+// ulogme API Routes
+// ============================================================================
+
+/**
+ * GET /api/ulogme/dates
+ * Returns list of available dates with data
+ */
+app.get("/api/ulogme/dates", async (c) => {
+  try {
+    const dates = await getAvailableDates();
+    return c.json({ dates });
+  } catch (error) {
+    console.error("Error fetching dates:", error);
+    return c.json({ error: "Failed to fetch dates", dates: [] }, 500);
+  }
+});
+
+/**
+ * GET /api/ulogme/day/:logicalDate
+ * Returns all data for a specific logical date
+ */
+app.get("/api/ulogme/day/:logicalDate", async (c) => {
+  try {
+    const logicalDate = c.req.param("logicalDate");
+    const data = await getDayData(logicalDate);
+    return c.json(data);
+  } catch (error) {
+    console.error("Error fetching day data:", error);
+    return c.json({ error: "Failed to fetch day data" }, 500);
+  }
+});
+
+/**
+ * GET /api/ulogme/day/:logicalDate/apps
+ * Returns app usage breakdown with durations for a date
+ */
+app.get("/api/ulogme/day/:logicalDate/apps", async (c) => {
+  try {
+    const logicalDate = c.req.param("logicalDate");
+    const apps = await getAppUsageForDate(logicalDate);
+    return c.json({ apps });
+  } catch (error) {
+    console.error("Error fetching app usage:", error);
+    return c.json({ error: "Failed to fetch app usage" }, 500);
+  }
+});
+
+/**
+ * GET /api/ulogme/overview
+ * Returns aggregated stats across a date range
+ */
+app.get("/api/ulogme/overview", async (c) => {
+  try {
+    const from = c.req.query("from");
+    const to = c.req.query("to");
+    const limit = parseInt(c.req.query("limit") || "30", 10);
+
+    const days = await getOverview(from, to, limit);
+    return c.json({ days });
+  } catch (error) {
+    console.error("Error fetching overview:", error);
+    return c.json({ error: "Failed to fetch overview" }, 500);
+  }
+});
+
+/**
+ * POST /api/ulogme/note
+ * Add a note at a specific timestamp
+ */
+app.post("/api/ulogme/note", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { timestamp, content, logical_date } = body;
+
+    if (!timestamp || !content || !logical_date) {
+      return c.json(
+        { error: "timestamp, content, and logical_date are required" },
+        400
+      );
+    }
+
+    await addNote(timestamp, content, logical_date);
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error adding note:", error);
+    return c.json({ error: "Failed to add note" }, 500);
+  }
+});
+
+/**
+ * PUT /api/ulogme/blog/:logicalDate
+ * Save or update the daily blog
+ */
+app.put("/api/ulogme/blog/:logicalDate", async (c) => {
+  try {
+    const logicalDate = c.req.param("logicalDate");
+    const body = await c.req.json();
+    const { content } = body;
+
+    if (content === undefined) {
+      return c.json({ error: "content is required" }, 400);
+    }
+
+    await saveBlog(logicalDate, content);
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error saving blog:", error);
+    return c.json({ error: "Failed to save blog" }, 500);
+  }
+});
+
+/**
+ * GET /api/ulogme/settings
+ * Get all settings
+ */
+app.get("/api/ulogme/settings", async (c) => {
+  try {
+    const settings = await getSettings();
+    return c.json(settings);
+  } catch (error) {
+    console.error("Error fetching settings:", error);
+    return c.json({ error: "Failed to fetch settings" }, 500);
+  }
+});
+
+/**
+ * PUT /api/ulogme/settings
+ * Update settings
+ */
+app.put("/api/ulogme/settings", async (c) => {
+  try {
+    const body = await c.req.json();
+
+    for (const [key, value] of Object.entries(body)) {
+      await updateSetting(key, value);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    return c.json({ error: "Failed to update settings" }, 500);
+  }
+});
+
+// ============================================================================
+// Static file serving and SPA routing
+// ============================================================================
 
 if (mode === "production") {
   configureProduction(app);
