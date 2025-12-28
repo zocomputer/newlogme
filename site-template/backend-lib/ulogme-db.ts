@@ -7,6 +7,7 @@
 import { DuckDBInstance, DuckDBConnection } from "@duckdb/node-api";
 import { join, dirname } from "path";
 import { existsSync } from "fs";
+import { categorizeWindow, getCategoryColor } from "./config";
 
 // Path to the DuckDB database (in the parent directory)
 const DB_PATH = join(dirname(dirname(import.meta.dir)), "data", "ulogme.duckdb");
@@ -341,6 +342,95 @@ export async function getAppUsageForDate(
       duration_seconds: Number(row[1]),
       event_count: Number(row[2]),
     }));
+  });
+}
+
+export interface CategoryBreakdown {
+  category: string;
+  duration_seconds: number;
+  event_count: number;
+  color: string;
+  apps: string[];
+}
+
+/**
+ * Get category breakdown for a date with durations calculated.
+ * Applies category rules from the config to group events.
+ */
+export async function getCategoryBreakdownForDate(
+  logicalDate: string
+): Promise<CategoryBreakdown[]> {
+  return withConnection(async (conn) => {
+    // Get events with calculated durations
+    const result = await conn.run(
+      `
+      WITH event_durations AS (
+        SELECT 
+          app_name,
+          window_title,
+          timestamp,
+          LEAD(timestamp) OVER (ORDER BY timestamp) as next_timestamp
+        FROM window_events
+        WHERE logical_date = ?
+      )
+      SELECT 
+        app_name,
+        window_title,
+        SUM(
+          CASE 
+            WHEN next_timestamp IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM (next_timestamp - timestamp))
+            ELSE 0 
+          END
+        ) as duration_seconds,
+        COUNT(*) as event_count
+      FROM event_durations
+      GROUP BY app_name, window_title
+      ORDER BY duration_seconds DESC
+    `,
+      [logicalDate]
+    );
+
+    const rows = await result.getRows();
+
+    // Group by category
+    const categoryMap: Map<string, { duration: number; count: number; apps: Set<string> }> = new Map();
+
+    for (const row of rows) {
+      const appName = String(row[0]);
+      const windowTitle = row[1] ? String(row[1]) : null;
+      const duration = Number(row[2]);
+      const count = Number(row[3]);
+
+      // Skip locked screen
+      if (appName === "__LOCKEDSCREEN") continue;
+
+      const category = categorizeWindow(appName, windowTitle);
+      
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { duration: 0, count: 0, apps: new Set() });
+      }
+      
+      const cat = categoryMap.get(category)!;
+      cat.duration += duration;
+      cat.count += count;
+      cat.apps.add(appName);
+    }
+
+    // Convert to array and sort by duration
+    const categories: CategoryBreakdown[] = [];
+    for (const [category, data] of categoryMap) {
+      categories.push({
+        category,
+        duration_seconds: data.duration,
+        event_count: data.count,
+        color: getCategoryColor(category),
+        apps: Array.from(data.apps),
+      });
+    }
+
+    categories.sort((a, b) => b.duration_seconds - a.duration_seconds);
+    return categories;
   });
 }
 

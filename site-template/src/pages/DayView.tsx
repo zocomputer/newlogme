@@ -55,11 +55,20 @@ interface DateInfo {
   label: string;
 }
 
+interface CategoryBreakdown {
+  category: string;
+  duration_seconds: number;
+  event_count: number;
+  color: string;
+  apps: string[];
+}
+
 export default function DayView() {
   const { date } = useParams<{ date: string }>();
   const navigate = useNavigate();
 
   const [dayData, setDayData] = useState<DayData | null>(null);
+  const [categories, setCategories] = useState<CategoryBreakdown[]>([]);
   const [availableDates, setAvailableDates] = useState<DateInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [blogContent, setBlogContent] = useState("");
@@ -75,16 +84,20 @@ export default function DayView() {
       .catch(console.error);
   }, []);
 
-  // Fetch day data
+  // Fetch day data and categories
   useEffect(() => {
     if (!date) return;
 
     setLoading(true);
-    fetch(`/api/ulogme/day/${date}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setDayData(data);
-        setBlogContent(data.blog || "");
+    
+    Promise.all([
+      fetch(`/api/ulogme/day/${date}`).then((res) => res.json()),
+      fetch(`/api/ulogme/day/${date}/categories`).then((res) => res.json()),
+    ])
+      .then(([dayResponse, catResponse]) => {
+        setDayData(dayResponse);
+        setBlogContent(dayResponse.blog || "");
+        setCategories(catResponse.categories || []);
         setLoading(false);
       })
       .catch((err) => {

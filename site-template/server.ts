@@ -13,7 +13,12 @@ import {
   saveBlog,
   getSettings,
   updateSetting,
+  getCategoryBreakdownForDate,
 } from "./backend-lib/ulogme-db";
+import {
+  loadConfig,
+  getAllCategoryColors,
+} from "./backend-lib/config";
 
 type Mode = "development" | "production";
 const app = new Hono();
@@ -89,6 +94,44 @@ app.get("/api/ulogme/day/:logicalDate/apps", async (c) => {
   } catch (error) {
     console.error("Error fetching app usage:", error);
     return c.json({ error: "Failed to fetch app usage" }, 500);
+  }
+});
+
+/**
+ * GET /api/ulogme/day/:logicalDate/categories
+ * Returns category breakdown with durations for a date
+ */
+app.get("/api/ulogme/day/:logicalDate/categories", async (c) => {
+  try {
+    const logicalDate = c.req.param("logicalDate");
+    const categories = await getCategoryBreakdownForDate(logicalDate);
+    const colors = getAllCategoryColors();
+    return c.json({ categories, colors });
+  } catch (error) {
+    console.error("Error fetching category breakdown:", error);
+    return c.json({ error: "Failed to fetch category breakdown" }, 500);
+  }
+});
+
+/**
+ * GET /api/ulogme/config
+ * Returns the current configuration including category rules
+ */
+app.get("/api/ulogme/config", (c) => {
+  try {
+    const config = loadConfig();
+    return c.json({
+      category_rules: config.category_rules.map(r => ({
+        pattern: r.pattern,
+        category: r.category,
+      })),
+      hacking_categories: config.hacking_categories,
+      day_boundary_hour: config.day_boundary.hour,
+      colors: getAllCategoryColors(),
+    });
+  } catch (error) {
+    console.error("Error fetching config:", error);
+    return c.json({ error: "Failed to fetch config" }, 500);
   }
 });
 

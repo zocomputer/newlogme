@@ -26,18 +26,86 @@ path = "data/ulogme.duckdb"
 [category_mappings]
 # Regex patterns to categorize windows into groups
 # Order matters - first match wins
-# Format: pattern = "category"
+# URL-based rules come first (more specific), then app-based rules
+
+# === AI Assistants ===
+[[category_mappings.rules]]
+pattern = "chatgpt\\.com|chat\\.openai\\.com|claude\\.ai|anthropic\\.com|bard\\.google\\.com|perplexity\\.ai"
+category = "AI"
+
+# === Email (browser-based) ===
+[[category_mappings.rules]]
+pattern = "mail\\.google\\.com|outlook\\.live\\.com|outlook\\.office|mail\\.yahoo\\.com|proton\\.me/mail"
+category = "Email"
+
+# === Calendar ===
+[[category_mappings.rules]]
+pattern = "calendar\\.google\\.com|outlook\\..*calendar|calendly\\.com"
+category = "Calendar"
+
+# === Documents & Productivity ===
+[[category_mappings.rules]]
+pattern = "docs\\.google\\.com|sheets\\.google\\.com|slides\\.google\\.com|drive\\.google\\.com"
+category = "Documents"
 
 [[category_mappings.rules]]
-pattern = "Google Chrome|Firefox|Safari|Arc|Brave"
-category = "Browser"
+pattern = "notion\\.so|coda\\.io|airtable\\.com|monday\\.com|asana\\.com|linear\\.app|clickup\\.com"
+category = "Notes"
 
+# === Coding (browser-based) ===
 [[category_mappings.rules]]
-pattern = "VS Code|Visual Studio Code|Cursor|Zed|Sublime|Atom|IntelliJ|PyCharm|WebStorm"
+pattern = "github\\.com|gitlab\\.com|bitbucket\\.org|stackoverflow\\.com|stackexchange\\.com"
 category = "Coding"
 
 [[category_mappings.rules]]
-pattern = "Terminal|iTerm|Warp|Alacritty|kitty"
+pattern = "localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0"
+category = "Dev"
+
+# === Social Media ===
+[[category_mappings.rules]]
+pattern = "twitter\\.com|x\\.com|reddit\\.com|facebook\\.com|instagram\\.com|linkedin\\.com|threads\\.net|mastodon|bsky\\.app"
+category = "Social"
+
+[[category_mappings.rules]]
+pattern = "news\\.ycombinator\\.com|techmeme\\.com|lobste\\.rs"
+category = "Tech News"
+
+# === Video & Entertainment ===
+[[category_mappings.rules]]
+pattern = "youtube\\.com|netflix\\.com|hulu\\.com|disneyplus\\.com|primevideo\\.com|twitch\\.tv|vimeo\\.com|hbomax\\.com|max\\.com"
+category = "Video"
+
+[[category_mappings.rules]]
+pattern = "spotify\\.com|music\\.apple\\.com|soundcloud\\.com|bandcamp\\.com"
+category = "Music"
+
+# === Shopping ===
+[[category_mappings.rules]]
+pattern = "amazon\\.com|ebay\\.com|etsy\\.com|shopify\\.com|stripe\\.com"
+category = "Shopping"
+
+# === Reading ===
+[[category_mappings.rules]]
+pattern = "medium\\.com|substack\\.com|wikipedia\\.org|arxiv\\.org"
+category = "Reading"
+
+# === Messaging (browser-based) ===
+[[category_mappings.rules]]
+pattern = "slack\\.com|discord\\.com|web\\.whatsapp\\.com|web\\.telegram\\.org|messages\\.google\\.com"
+category = "Chat"
+
+# === Meetings (browser-based) ===
+[[category_mappings.rules]]
+pattern = "meet\\.google\\.com|zoom\\.us|teams\\.microsoft\\.com"
+category = "Meetings"
+
+# === Native Apps (fallback after URL rules) ===
+[[category_mappings.rules]]
+pattern = "VS Code|Visual Studio Code|Cursor|Zed|Sublime|Atom|IntelliJ|PyCharm|WebStorm|Xcode"
+category = "Coding"
+
+[[category_mappings.rules]]
+pattern = "Terminal|iTerm|Warp|Alacritty|kitty|Hyper"
 category = "Terminal"
 
 [[category_mappings.rules]]
@@ -45,26 +113,35 @@ pattern = "Slack|Discord|Messages|Telegram|WhatsApp"
 category = "Chat"
 
 [[category_mappings.rules]]
-pattern = "Mail|Outlook|Spark|Airmail"
+pattern = "Mail|Outlook|Spark|Airmail|Superhuman"
 category = "Email"
 
 [[category_mappings.rules]]
-pattern = "Figma|Sketch|Adobe|Affinity"
+pattern = "Figma|Sketch|Adobe|Affinity|Canva"
 category = "Design"
 
 [[category_mappings.rules]]
-pattern = "Zoom|Meet|Teams|FaceTime"
+pattern = "Zoom|FaceTime|Webex"
 category = "Meetings"
 
 [[category_mappings.rules]]
-pattern = "Notion|Obsidian|Bear|Notes|Roam"
+pattern = "Notion|Obsidian|Bear|Notes|Roam|Craft|Logseq"
 category = "Notes"
 
 [[category_mappings.rules]]
-pattern = "Spotify|Music|Podcasts"
+pattern = "Spotify|Music|Podcasts|Audible"
 category = "Music"
+
+[[category_mappings.rules]]
+pattern = "Finder|Preview|Archive Utility"
+category = "Files"
+
+# === Catch-all for browsers (generic browsing) ===
+[[category_mappings.rules]]
+pattern = "Google Chrome|Firefox|Safari|Arc|Brave|Edge"
+category = "Browser"
 
 [hacking]
 # Categories considered "focused work" for hacking streak visualization
-categories = ["Coding", "Terminal"]
+categories = ["Coding", "Terminal", "Dev", "AI"]
 
