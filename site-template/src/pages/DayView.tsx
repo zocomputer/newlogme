@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Card,
@@ -19,11 +19,166 @@ import {
   FileText,
   Settings,
 } from "lucide-react";
+import { Pie, PieChart, Cell, Label, Bar, BarChart, XAxis, YAxis } from "recharts";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+} from "@/components/ui/chart";
 import { ActivityTimeline } from "@/components/ulogme/ActivityTimeline";
 import { KeystrokeChart } from "@/components/ulogme/KeystrokeChart";
 import { CategoryPieChart } from "@/components/ulogme/CategoryPieChart";
 import { CategoryStats } from "@/components/ulogme/CategoryStats";
 import { NotesPanel } from "@/components/ulogme/NotesPanel";
+
+// Helper to format duration
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.round((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
+}
+
+// Category Pie Chart component
+function CategoryBreakdownChart({ categories }: { categories: CategoryBreakdown[] }) {
+  const { pieData, totalSeconds, chartConfig } = useMemo(() => {
+    if (categories.length === 0) {
+      return { pieData: [], totalSeconds: 0, chartConfig: {} as ChartConfig };
+    }
+
+    const total = categories.reduce((sum, c) => sum + c.duration_seconds, 0);
+    
+    const config: ChartConfig = { duration: { label: "Duration" } };
+    const data = categories.slice(0, 6).map((cat, index) => {
+      const key = cat.category.toLowerCase().replace(/\s+/g, "_");
+      config[key] = { label: cat.category, color: cat.color };
+      return {
+        name: cat.category,
+        value: cat.duration_seconds,
+        key,
+        fill: cat.color,
+      };
+    });
+
+    return { pieData: data, totalSeconds: total, chartConfig: config };
+  }, [categories]);
+
+  if (categories.length === 0) {
+    return <div className="h-[250px] flex items-center justify-center text-slate-500">No data</div>;
+  }
+
+  return (
+    <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[250px]">
+      <PieChart>
+        <ChartTooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const data = payload[0].payload;
+            return (
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-xl">
+                <p className="text-slate-100 font-medium">{data.name}</p>
+                <p style={{ color: data.fill }}>{formatDuration(data.value)}</p>
+              </div>
+            );
+          }}
+        />
+        <Pie
+          data={pieData}
+          dataKey="value"
+          nameKey="name"
+          innerRadius={60}
+          outerRadius={90}
+          strokeWidth={2}
+          stroke="#0f172a"
+        >
+          {pieData.map((entry) => (
+            <Cell key={entry.key} fill={entry.fill} />
+          ))}
+          <Label
+            content={({ viewBox }) => {
+              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                return (
+                  <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-slate-100 text-2xl font-bold">
+                      {formatDuration(totalSeconds)}
+                    </tspan>
+                    <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-slate-400 text-xs">
+                      tracked
+                    </tspan>
+                  </text>
+                );
+              }
+            }}
+          />
+        </Pie>
+      </PieChart>
+    </ChartContainer>
+  );
+}
+
+// Category Bar Chart component  
+function CategoryBarChart({ categories }: { categories: CategoryBreakdown[] }) {
+  const { data, chartConfig } = useMemo(() => {
+    if (categories.length === 0) {
+      return { data: [], chartConfig: {} as ChartConfig };
+    }
+
+    const config: ChartConfig = { duration: { label: "Duration" } };
+    const chartData = categories.slice(0, 8).map((cat) => {
+      const key = cat.category.toLowerCase().replace(/\s+/g, "_");
+      config[key] = { label: cat.category, color: cat.color };
+      return {
+        name: cat.category,
+        duration: cat.duration_seconds,
+        key,
+        durationLabel: formatDuration(cat.duration_seconds),
+        fill: cat.color,
+        apps: cat.apps.join(", "),
+      };
+    });
+
+    return { data: chartData, chartConfig: config };
+  }, [categories]);
+
+  if (categories.length === 0) {
+    return <div className="h-[300px] flex items-center justify-center text-slate-500">No data</div>;
+  }
+
+  return (
+    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+      <BarChart data={data} layout="vertical" margin={{ left: 10, right: 60 }}>
+        <XAxis type="number" hide />
+        <YAxis
+          dataKey="name"
+          type="category"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fill: "#94a3b8", fontSize: 12 }}
+          width={100}
+        />
+        <ChartTooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const d = payload[0].payload;
+            return (
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-xl max-w-xs">
+                <p className="text-slate-100 font-medium">{d.name}</p>
+                <p style={{ color: d.fill }} className="font-semibold">{d.durationLabel}</p>
+                <p className="text-slate-400 text-xs mt-1 truncate">{d.apps}</p>
+              </div>
+            );
+          }}
+        />
+        <Bar dataKey="duration" radius={[0, 4, 4, 0]}>
+          {data.map((entry) => (
+            <Cell key={entry.key} fill={entry.fill} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ChartContainer>
+  );
+}
 
 interface WindowEvent {
   timestamp: string;
@@ -283,13 +438,17 @@ export default function DayView() {
           {/* Category pie chart */}
           <Card className="bg-slate-900/50 border-slate-800/50">
             <CardHeader>
-              <CardTitle className="text-slate-100">Time Distribution</CardTitle>
+              <CardTitle className="text-slate-100">Time by Category</CardTitle>
               <CardDescription className="text-slate-400">
-                Time spent per application
+                Time spent per category
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <CategoryPieChart events={dayData?.window_events || []} />
+              {categories.length > 0 ? (
+                <CategoryBreakdownChart categories={categories} />
+              ) : (
+                <CategoryPieChart events={dayData?.window_events || []} />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -312,13 +471,17 @@ export default function DayView() {
           {/* Category stats */}
           <Card className="bg-slate-900/50 border-slate-800/50">
             <CardHeader>
-              <CardTitle className="text-slate-100">App Usage</CardTitle>
+              <CardTitle className="text-slate-100">Category Breakdown</CardTitle>
               <CardDescription className="text-slate-400">
-                Time spent in each application
+                Time spent by category
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <CategoryStats events={dayData?.window_events || []} />
+              {categories.length > 0 ? (
+                <CategoryBarChart categories={categories} />
+              ) : (
+                <CategoryStats events={dayData?.window_events || []} />
+              )}
             </CardContent>
           </Card>
 
