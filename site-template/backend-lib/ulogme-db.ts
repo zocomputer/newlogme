@@ -15,13 +15,17 @@ let connection: DuckDBConnection | null = null;
 
 /**
  * Get or create the DuckDB connection.
+ * Opens in read-only mode to allow concurrent access with the tracker daemon.
  */
 export async function getConnection(): Promise<DuckDBConnection> {
   if (connection !== null) {
     return connection;
   }
 
-  instance = await DuckDBInstance.create(DB_PATH);
+  // Open in read-only mode to allow concurrent access with the tracker
+  instance = await DuckDBInstance.create(DB_PATH, {
+    access_mode: "READ_ONLY",
+  });
   connection = await instance.connect();
 
   return connection;
