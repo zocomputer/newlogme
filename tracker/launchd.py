@@ -38,6 +38,10 @@ PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
     <key>StandardOutPath</key>
     <string>{log_path}</string>
     <key>StandardErrorPath</key>

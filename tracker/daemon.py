@@ -13,8 +13,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from AppKit import NSApplication, NSApp
-from Foundation import NSTimer, NSObject, NSRunLoop, NSDefaultRunLoopMode
+from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+from Foundation import NSTimer, NSObject
 from PyObjCTools import AppHelper
 
 from .config import Config, load_config
@@ -71,8 +71,9 @@ class Daemon:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
         
-        # Initialize NSApplication
-        NSApplication.sharedApplication()
+        # Initialize NSApplication as an accessory app (no dock icon, works in background)
+        app = NSApplication.sharedApplication()
+        app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
         
         # Create delegate
         self._delegate = DaemonDelegate.alloc().init()
@@ -80,7 +81,7 @@ class Daemon:
         self._delegate.counter = self.counter
         self._delegate.verbose = self.verbose
         
-        NSApp().setDelegate_(self._delegate)
+        app.setDelegate_(self._delegate)
         
         # Set up window tracking
         self._observer = setup_window_tracking(self.tracker)
@@ -98,11 +99,11 @@ class Daemon:
             True,
         )
         
-        print(f"ulogme daemon started (PID: {os.getpid()})")
-        print(f"Database: {self.config.absolute_db_path}")
-        print(f"Window tracking: {'enabled' if self.config.window_titles else 'disabled'}")
-        print(f"Keystroke counting: {'enabled' if self.config.keystrokes else 'disabled'}")
-        print("Press Ctrl+C to stop")
+        print(f"ulogme daemon started (PID: {os.getpid()})", flush=True)
+        print(f"Database: {self.config.absolute_db_path}", flush=True)
+        print(f"Window tracking: {'enabled' if self.config.window_titles else 'disabled'}", flush=True)
+        print(f"Keystroke counting: {'enabled' if self.config.keystrokes else 'disabled'}", flush=True)
+        sys.stdout.flush()
         
         # Run the event loop
         try:
