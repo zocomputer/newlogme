@@ -174,8 +174,8 @@ new/
 # Core approach:
 # 1. Subscribe to NSWorkspaceDidActivateApplicationNotification
 # 2. On activation, get window name via Accessibility API or CGWindowListCopyWindowInfo
-# 3. For browsers, optionally get URL/tab title via AppleScript (opt-in for privacy)
-# 4. Write to SQLite only when window changes (debounce rapid switches)
+# 3. For browsers, get URL/tab title via AppleScript (enabled by default)
+# 4. Write to DuckDB only when window changes (debounce rapid switches)
 ```
 
 **Keystroke Counting (`keyboard.py`):**
@@ -322,15 +322,15 @@ site-template/
 
 ```typescript
 // GET /api/ulogme/dates
-// Returns list of available dates with their logical timestamps
-// Response: { dates: [{ logical_date: 1703833200, label: "Dec 29, 2024" }, ...] }
+// Returns list of available dates
+// Response: { dates: [{ logical_date: "2024-12-29", label: "Dec 29, 2024" }, ...] }
 
 // GET /api/ulogme/day/:logical_date
 // Returns all events for a single day
 // Response: {
-//   window_events: [{ t: 1703840000, app: "Chrome", title: "GitHub" }, ...],
-//   key_events: [{ t: 1703840009, count: 42 }, ...],
-//   notes: [{ t: 1703845000, content: "lunch break" }, ...],
+//   window_events: [{ timestamp: "2024-12-29T10:00:00", app: "Chrome", title: "GitHub", url: "https://github.com/..." }, ...],
+//   key_events: [{ timestamp: "2024-12-29T10:00:09", count: 42 }, ...],
+//   notes: [{ timestamp: "2024-12-29T12:00:00", content: "lunch break" }, ...],
 //   blog: "Productive day working on..."
 // }
 
@@ -555,9 +555,8 @@ var title_mappings = [
 
 #### 3.4.2 Modern Implementation
 ```typescript
-// Settings stored in SQLite, editable via UI
+// Settings stored in DuckDB (JSON), editable via UI
 interface TitleMapping {
-  id: string;
   pattern: string;      // Regex pattern
   category: string;     // Target category name
   priority: number;     // Higher = checked first
@@ -683,14 +682,17 @@ new/
 │   ├── keyboard.py
 │   ├── storage.py              # DuckDB operations
 │   ├── config.py
+│   ├── launchd.py              # launchd plist generation & installation
 │   └── utils.py
 ├── data/
-│   └── ulogme.duckdb           # DuckDB database file
+│   ├── ulogme.duckdb           # DuckDB database file
+│   ├── tracker.log             # stdout from launchd
+│   └── tracker.error.log       # stderr from launchd
 └── site-template/
     ├── package.json            # Includes @duckdb/node-api
     ├── server.ts               # Hono server + API
     ├── backend-lib/
-    │   ├── ulogme-db.ts        # DuckDB connection & queries
+    │   ├── db.ts               # DuckDB connection & queries
     │   └── utils.ts
     ├── docs/
     │   └── shadcncharts.md     # Chart implementation guide
@@ -718,7 +720,7 @@ new/
 ## 6. Commands Reference
 
 ```bash
-# Start the tracker daemon
+# Start the tracker daemon (foreground)
 cd new/
 uv run python -m tracker start
 
@@ -727,6 +729,12 @@ uv run python -m tracker stop
 
 # Check status
 uv run python -m tracker status
+
+# Install as launchd service (auto-start on login)
+uv run python -m tracker install
+
+# Uninstall launchd service
+uv run python -m tracker uninstall
 
 # Start the web UI (development)
 cd new/site-template/
