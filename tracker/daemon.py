@@ -63,6 +63,19 @@ class Daemon:
         self._key_monitor: Any = None
         self._delegate: DaemonDelegate | None = None
     
+    def _poll_thread(self) -> None:
+        """Background thread that polls window and keystrokes."""
+        while self._running:
+            try:
+                if self.verbose:
+                    from datetime import datetime
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] poll tick", flush=True)
+                self.tracker.poll()
+                self.counter.poll()
+            except Exception as e:
+                print(f"Poll error: {e}", flush=True)
+            time.sleep(self.config.window_poll_interval)
+    
     def start(self) -> None:
         """Start the daemon and run the event loop."""
         self._running = True
@@ -90,14 +103,9 @@ class Daemon:
         if self.config.keystrokes:
             self._key_monitor = setup_keystroke_monitoring(self.counter)
         
-        # Set up periodic timer for polling
-        NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-            self.config.window_poll_interval,
-            self._delegate,
-            "pollCallback:",
-            None,
-            True,
-        )
+        # Start background polling thread (more reliable than NSTimer for background daemons)
+        self._poll_thread_obj = threading.Thread(target=self._poll_thread, daemon=True)
+        self._poll_thread_obj.start()
         
         print(f"ulogme daemon started (PID: {os.getpid()})", flush=True)
         print(f"Database: {self.config.absolute_db_path}", flush=True)
@@ -105,7 +113,7 @@ class Daemon:
         print(f"Keystroke counting: {'enabled' if self.config.keystrokes else 'disabled'}", flush=True)
         sys.stdout.flush()
         
-        # Run the event loop
+        # Run the event loop - needed for NSWorkspace notifications and key events
         try:
             AppHelper.runEventLoop()
         except KeyboardInterrupt:
