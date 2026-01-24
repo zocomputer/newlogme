@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -12,11 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Settings, TrendingUp, Calendar, Keyboard } from "lucide-react";
 import { OverviewChart } from "@/components/ulogme/OverviewChart";
 import { HackingStreak } from "@/components/ulogme/HackingStreak";
-
-interface DateInfo {
-  logical_date: string;
-  label: string;
-}
+import { MonthlyCalendar } from "@/components/ulogme/MonthlyCalendar";
 
 interface DailySummary {
   logical_date: string;
@@ -25,18 +21,14 @@ interface DailySummary {
 }
 
 export default function Overview() {
-  const [dates, setDates] = useState<DateInfo[]>([]);
   const [overview, setOverview] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/ulogme/dates").then((r) => r.json()),
-      fetch("/api/ulogme/overview?limit=30").then((r) => r.json()),
-    ])
-      .then(([datesData, overviewData]) => {
-        setDates(datesData.dates || []);
-        setOverview(overviewData.days || []);
+    fetch("/api/ulogme/overview")
+      .then((r) => r.json())
+      .then((data) => {
+        setOverview(data.days || []);
         setLoading(false);
       })
       .catch((err) => {
@@ -45,10 +37,13 @@ export default function Overview() {
       });
   }, []);
 
-  // Calculate totals
-  const totalKeystrokes = overview.reduce((sum, d) => sum + d.total_keys, 0);
-  const avgKeystrokes = overview.length > 0 ? Math.round(totalKeystrokes / overview.length) : 0;
-  const activeDays = overview.filter((d) => d.total_keys > 0).length;
+  // Get last 30 days for stats and heatmap
+  const last30Days = overview.slice(0, 30);
+
+  // Calculate totals (for last 30 days)
+  const totalKeystrokes = last30Days.reduce((sum, d) => sum + d.total_keys, 0);
+  const avgKeystrokes = last30Days.length > 0 ? Math.round(totalKeystrokes / last30Days.length) : 0;
+  const activeDays = last30Days.filter((d) => d.total_keys > 0).length;
 
   if (loading) {
     return (
@@ -155,7 +150,7 @@ export default function Overview() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <HackingStreak days={overview} />
+            <HackingStreak days={last30Days} />
           </CardContent>
         </Card>
 
@@ -168,42 +163,20 @@ export default function Overview() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <OverviewChart days={overview} />
+            <OverviewChart days={last30Days} />
           </CardContent>
         </Card>
 
-        {/* Day list */}
+        {/* Calendar */}
         <Card className="bg-slate-900/50 border-slate-800/50">
           <CardHeader>
-            <CardTitle className="text-slate-100">Recent Days</CardTitle>
+            <CardTitle className="text-slate-100">Browse History</CardTitle>
             <CardDescription className="text-slate-400">
-              Click a day to view detailed activity
+              Navigate by month to explore your activity
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {dates.slice(0, 30).map((dateInfo) => {
-                const summary = overview.find(
-                  (d) => d.logical_date === dateInfo.logical_date
-                );
-                return (
-                  <Link
-                    key={dateInfo.logical_date}
-                    to={`/day/${dateInfo.logical_date}`}
-                    className="group"
-                  >
-                    <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-all">
-                      <p className="text-sm font-medium text-slate-300 group-hover:text-cyan-400 truncate">
-                        {dateInfo.label.split(",")[0]}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {summary?.total_keys?.toLocaleString() || 0} keys
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <MonthlyCalendar days={overview} />
           </CardContent>
         </Card>
       </main>

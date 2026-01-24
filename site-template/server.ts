@@ -143,7 +143,9 @@ app.get("/api/ulogme/overview", async (c) => {
   try {
     const from = c.req.query("from");
     const to = c.req.query("to");
-    const limit = parseInt(c.req.query("limit") || "30", 10);
+    const limitParam = c.req.query("limit");
+    // Default to all data (10000 is effectively unlimited for personal tracking)
+    const limit = limitParam ? parseInt(limitParam, 10) : 10000;
 
     const days = await getOverview(from, to, limit);
     return c.json({ days });
