@@ -155,6 +155,7 @@ export function categorizeWindow(
  */
 const CATEGORY_COLORS: Record<string, string> = {
   "AI": "#8b5cf6",        // violet
+  "AI Infra": "#7c3aed",  // violet-600
   "Coding": "#22c55e",    // green
   "Terminal": "#14b8a6",  // teal
   "Dev": "#06b6d4",       // cyan
@@ -173,6 +174,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Shopping": "#eab308",  // yellow
   "Tech News": "#84cc16", // lime
   "Files": "#78716c",     // stone
+  "Zo": "#2563eb",        // blue-600 (your product!)
+  "Finance": "#059669",   // emerald-600
+  "Observability": "#0891b2", // cyan-600
+  "Support": "#db2777",   // pink-600
+  "Search": "#9333ea",    // purple-600
+  "Travel": "#ea580c",    // orange-600
   "Other": "#94a3b8",     // slate-400
 };
 

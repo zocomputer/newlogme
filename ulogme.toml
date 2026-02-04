@@ -60,13 +60,18 @@ category = "Support"
 
 # === Search ===
 [[category_mappings.rules]]
-pattern = "www\\.google\\.com(?:/search|/?$)|duckduckgo\\.com|bing\\.com|kagi\\.com"
+pattern = "www\\.google\\.com|duckduckgo\\.com|bing\\.com|kagi\\.com"
 category = "Search"
 
 # === Travel ===
 [[category_mappings.rules]]
-pattern = "hoteltonight\\.com|jetblue\\.com|expedia\\.com|united\\.com|kayak\\.com|booking\\.com|airbnb\\.com|delta\\.com|southwest\\.com|aa\\.com|hotels\\.com|tripadvisor\\.com"
+pattern = "hoteltonight\\.com|jetblue\\.com|expedia\\.com|united\\.com|kayak\\.com|booking\\.com|airbnb\\.com|delta\\.com|southwest\\.com|aa\\.com|hotels\\.com|tripadvisor\\.com|flightconnections\\.com|maps\\.google\\.com"
 category = "Travel"
+
+# === Weather ===
+[[category_mappings.rules]]
+pattern = "weather\\.com|accuweather\\.com|wunderground\\.com"
+category = "Weather"
 
 # === Email (browser-based) ===
 [[category_mappings.rules]]
@@ -89,7 +94,7 @@ category = "Notes"
 
 # === Coding (browser-based) ===
 [[category_mappings.rules]]
-pattern = "github\\.com|gitlab\\.com|bitbucket\\.org|stackoverflow\\.com|stackexchange\\.com"
+pattern = "github\\.com|gitlab\\.com|bitbucket\\.org|stackoverflow\\.com|stackexchange\\.com|cursor\\.com|apidocs\\.|docs\\.rs|pkg\\.go\\.dev"
 category = "Coding"
 
 [[category_mappings.rules]]
