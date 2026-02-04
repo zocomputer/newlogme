@@ -180,6 +180,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Support": "#db2777",   // pink-600
   "Search": "#9333ea",    // purple-600
   "Travel": "#ea580c",    // orange-600
+  "Weather": "#38bdf8",   // sky-400
   "Other": "#94a3b8",     // slate-400
 };
 
