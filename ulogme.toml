@@ -28,10 +28,45 @@ path = "data/ulogme.duckdb"
 # Order matters - first match wins
 # URL-based rules come first (more specific), then app-based rules
 
+# === Your Product (Zo) ===
+[[category_mappings.rules]]
+pattern = "zo\\.computer|zocomputer\\.io|zo\\.localhost"
+category = "Zo"
+
 # === AI Assistants ===
 [[category_mappings.rules]]
-pattern = "chatgpt\\.com|chat\\.openai\\.com|claude\\.ai|anthropic\\.com|bard\\.google\\.com|perplexity\\.ai"
+pattern = "chatgpt\\.com|chat\\.openai\\.com|claude\\.ai|anthropic\\.com|bard\\.google\\.com|perplexity\\.ai|platform\\.claude\\.com"
 category = "AI"
+
+# === AI Infrastructure (compute platforms) ===
+[[category_mappings.rules]]
+pattern = "modal\\.com|fal\\.ai|cloud\\.cerebras\\.ai|replicate\\.com|huggingface\\.co|together\\.ai|fireworks\\.ai|anyscale\\.com"
+category = "AI Infra"
+
+# === Observability & Monitoring ===
+[[category_mappings.rules]]
+pattern = "logfire.*\\.pydantic\\.dev|pydantic\\.dev|sentry\\.io|datadoghq\\.com|honeycomb\\.io|grafana"
+category = "Observability"
+
+# === Business Finance (dashboards, not shopping) ===
+[[category_mappings.rules]]
+pattern = "dashboard\\.stripe\\.com|dashboard\\.plaid\\.com|app\\.mercury\\.com|mercury\\.com|app\\.brex\\.com|app\\.ramp\\.com"
+category = "Finance"
+
+# === Customer Support ===
+[[category_mappings.rules]]
+pattern = "app\\.plain\\.com|intercom\\.com|zendesk\\.com|freshdesk\\.com"
+category = "Support"
+
+# === Search ===
+[[category_mappings.rules]]
+pattern = "www\\.google\\.com(?:/search|/?$)|duckduckgo\\.com|bing\\.com|kagi\\.com"
+category = "Search"
+
+# === Travel ===
+[[category_mappings.rules]]
+pattern = "hoteltonight\\.com|jetblue\\.com|expedia\\.com|united\\.com|kayak\\.com|booking\\.com|airbnb\\.com|delta\\.com|southwest\\.com|aa\\.com|hotels\\.com|tripadvisor\\.com"
+category = "Travel"
 
 # === Email (browser-based) ===
 [[category_mappings.rules]]
@@ -101,6 +136,10 @@ category = "Meetings"
 
 # === Native Apps (fallback after URL rules) ===
 [[category_mappings.rules]]
+pattern = "^Zo$"
+category = "Zo"
+
+[[category_mappings.rules]]
 pattern = "VS Code|Visual Studio Code|Cursor|Zed|Sublime|Atom|IntelliJ|PyCharm|WebStorm|Xcode"
 category = "Coding"
 
@@ -143,5 +182,5 @@ category = "Browser"
 
 [hacking]
 # Categories considered "focused work" for hacking streak visualization
-categories = ["Coding", "Terminal", "Dev", "AI"]
+categories = ["Coding", "Terminal", "Dev", "AI", "Zo", "AI Infra", "Observability"]
 
