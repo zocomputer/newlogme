@@ -1,58 +1,42 @@
 /**
- * DuckDB interface for ulogme data.
+ * SQLite interface for ulogme data.
  *
  * Provides functions to query the ulogme database created by the Python tracker.
  */
 
-import { DuckDBInstance, DuckDBConnection } from "@duckdb/node-api";
+import { Database } from "bun:sqlite";
 import { join, dirname } from "path";
 import { existsSync } from "fs";
 import { categorizeWindow, getCategoryColor } from "./config";
 
-// Path to the DuckDB database (in the parent directory)
-const DB_PATH = join(dirname(dirname(import.meta.dir)), "data", "ulogme.duckdb");
+// Path to the SQLite database (in the parent directory)
+const DB_PATH = join(dirname(dirname(import.meta.dir)), "data", "ulogme.db");
 
-/**
- * Helper to run a query with automatic connection management.
- * Creates a fresh read-only connection, runs the query, and closes everything.
- */
-export async function withConnection<T>(
-  fn: (conn: DuckDBConnection) => Promise<T>
-): Promise<T> {
+function getDb(): Database {
   if (!existsSync(DB_PATH)) {
     throw new Error(`Database not found: ${DB_PATH}. Run the tracker first to create it.`);
   }
-  
-  const instance = await DuckDBInstance.create(DB_PATH, {
-    access_mode: "READ_ONLY",
-  });
-  const conn = await instance.connect();
-  
-  try {
-    return await fn(conn);
-  } finally {
-    // Explicitly close connection and instance to release locks
-    conn.closeSync();
-    instance.closeSync();
+  const db = new Database(DB_PATH);
+  db.exec("PRAGMA journal_mode=WAL");
+  db.exec("PRAGMA busy_timeout=5000");
+  return db;
+}
+
+// Persistent connection (matches pattern in db.ts)
+let db: Database;
+try {
+  db = getDb();
+} catch {
+  // Database may not exist yet — will be created by the tracker.
+  // Defer the error to when a query is actually made.
+  db = null as unknown as Database;
+}
+
+function ensureDb(): Database {
+  if (!db) {
+    db = getDb();
   }
-}
-
-/**
- * Get a fresh DuckDB connection.
- * @deprecated Use withConnection() instead to ensure proper cleanup
- */
-export async function getConnection(): Promise<DuckDBConnection> {
-  const instance = await DuckDBInstance.create(DB_PATH, {
-    access_mode: "READ_ONLY",
-  });
-  return await instance.connect();
-}
-
-/**
- * Close a database connection.
- */
-export async function closeConnection(conn: DuckDBConnection): Promise<void> {
-  conn.closeSync();
+  return db;
 }
 
 // Type definitions for ulogme data
@@ -99,9 +83,9 @@ export interface DailySummary {
 /**
  * Get all available dates that have data.
  */
-export async function getAvailableDates(): Promise<DateInfo[]> {
-  return withConnection(async (conn) => {
-    const result = await conn.run(`
+export function getAvailableDates(): DateInfo[] {
+  const rows = ensureDb()
+    .query<{ logical_date: string }, []>(`
       SELECT DISTINCT logical_date
       FROM (
         SELECT logical_date FROM window_events
@@ -109,30 +93,13 @@ export async function getAvailableDates(): Promise<DateInfo[]> {
         SELECT logical_date FROM key_events
       )
       ORDER BY logical_date DESC
-    `);
+    `)
+    .all();
 
-    const rows = await result.getRows();
-    const dates: DateInfo[] = [];
-
-    for (const row of rows) {
-      const dateValue = row[0];
-      if (dateValue) {
-        const dateStr =
-          typeof dateValue === "string"
-            ? dateValue
-            : dateValue instanceof Date
-              ? dateValue.toISOString().split("T")[0]
-              : String(dateValue);
-
-        dates.push({
-          logical_date: dateStr,
-          label: formatDateLabel(dateStr),
-        });
-      }
-    }
-
-    return dates;
-  });
+  return rows.map((row) => ({
+    logical_date: row.logical_date,
+    label: formatDateLabel(row.logical_date),
+  }));
 }
 
 /**
@@ -151,198 +118,147 @@ function formatDateLabel(dateStr: string): string {
 /**
  * Get all data for a specific logical date.
  */
-export async function getDayData(logicalDate: string): Promise<DayData> {
-  return withConnection(async (conn) => {
-    // Get window events
-    const windowResult = await conn.run(
-      `
+export function getDayData(logicalDate: string): DayData {
+  const d = ensureDb();
+
+  // Get window events
+  const window_events = d
+    .query<{ timestamp: string; app_name: string; window_title: string | null; browser_url: string | null }, [string]>(`
       SELECT timestamp, app_name, window_title, browser_url
       FROM window_events
       WHERE logical_date = ?
       ORDER BY timestamp
-    `,
-      [logicalDate]
-    );
+    `)
+    .all(logicalDate);
 
-    const windowRows = await windowResult.getRows();
-    const window_events: WindowEvent[] = windowRows.map((row) => ({
-      timestamp: formatTimestamp(row[0]),
-      app_name: String(row[1]),
-      window_title: row[2] ? String(row[2]) : null,
-      browser_url: row[3] ? String(row[3]) : null,
-    }));
-
-    // Get key events
-    const keyResult = await conn.run(
-      `
+  // Get key events
+  const key_events = d
+    .query<{ timestamp: string; key_count: number }, [string]>(`
       SELECT timestamp, key_count
       FROM key_events
       WHERE logical_date = ?
       ORDER BY timestamp
-    `,
-      [logicalDate]
-    );
+    `)
+    .all(logicalDate);
 
-    const keyRows = await keyResult.getRows();
-    const key_events: KeyEvent[] = keyRows.map((row) => ({
-      timestamp: formatTimestamp(row[0]),
-      key_count: Number(row[1]),
-    }));
-
-    // Get notes
-    const notesResult = await conn.run(
-      `
+  // Get notes
+  const notes = d
+    .query<{ timestamp: string; content: string }, [string]>(`
       SELECT timestamp, content
       FROM notes
       WHERE logical_date = ?
       ORDER BY timestamp
-    `,
-      [logicalDate]
-    );
+    `)
+    .all(logicalDate);
 
-    const notesRows = await notesResult.getRows();
-    const notes: Note[] = notesRows.map((row) => ({
-      timestamp: formatTimestamp(row[0]),
-      content: String(row[1]),
-    }));
-
-    // Get blog
-    const blogResult = await conn.run(
-      `
+  // Get blog
+  const blogRow = d
+    .query<{ content: string | null }, [string]>(`
       SELECT content
       FROM daily_blog
       WHERE logical_date = ?
-    `,
-      [logicalDate]
-    );
+    `)
+    .get(logicalDate);
 
-    const blogRows = await blogResult.getRows();
-    const blog = blogRows.length > 0 && blogRows[0][0] ? String(blogRows[0][0]) : null;
+  const blog = blogRow?.content ?? null;
 
-    return {
-      logical_date: logicalDate,
-      window_events,
-      key_events,
-      notes,
-      blog,
-    };
-  });
-}
-
-/**
- * Format a timestamp value to ISO string.
- */
-function formatTimestamp(value: unknown): string {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number") {
-    return new Date(value).toISOString();
-  }
-  return String(value);
+  return {
+    logical_date: logicalDate,
+    window_events,
+    key_events,
+    notes,
+    blog,
+  };
 }
 
 /**
  * Get overview statistics for a date range.
  */
-export async function getOverview(
+export function getOverview(
   fromDate?: string,
   toDate?: string,
   limit: number = 30
-): Promise<DailySummary[]> {
-  return withConnection(async (conn) => {
-    let query = `
-      SELECT 
-        w.logical_date,
-        COALESCE(
-          (SELECT SUM(key_count) FROM key_events k WHERE k.logical_date = w.logical_date),
-          0
-        ) as total_keys,
-        COUNT(DISTINCT w.app_name) as unique_apps
-      FROM window_events w
-    `;
+): DailySummary[] {
+  let query = `
+    SELECT
+      w.logical_date,
+      COALESCE(
+        (SELECT SUM(key_count) FROM key_events k WHERE k.logical_date = w.logical_date),
+        0
+      ) as total_keys,
+      COUNT(DISTINCT w.app_name) as unique_apps
+    FROM window_events w
+  `;
 
-    const params: string[] = [];
+  const params: string[] = [];
 
-    if (fromDate || toDate) {
-      const conditions: string[] = [];
-      if (fromDate) {
-        conditions.push("w.logical_date >= ?");
-        params.push(fromDate);
-      }
-      if (toDate) {
-        conditions.push("w.logical_date <= ?");
-        params.push(toDate);
-      }
-      query += " WHERE " + conditions.join(" AND ");
+  if (fromDate || toDate) {
+    const conditions: string[] = [];
+    if (fromDate) {
+      conditions.push("w.logical_date >= ?");
+      params.push(fromDate);
     }
+    if (toDate) {
+      conditions.push("w.logical_date <= ?");
+      params.push(toDate);
+    }
+    query += " WHERE " + conditions.join(" AND ");
+  }
 
-    query += `
-      GROUP BY w.logical_date
-      ORDER BY w.logical_date DESC
-      LIMIT ${limit}
-    `;
+  query += `
+    GROUP BY w.logical_date
+    ORDER BY w.logical_date DESC
+    LIMIT ${limit}
+  `;
 
-    const result = await conn.run(query, params);
-    const rows = await result.getRows();
+  const rows = ensureDb()
+    .query<{ logical_date: string; total_keys: number; unique_apps: number }, string[]>(query)
+    .all(...params);
 
-    return rows.map((row) => ({
-      logical_date:
-        row[0] instanceof Date
-          ? row[0].toISOString().split("T")[0]
-          : String(row[0]),
-      total_keys: Number(row[1]),
-      unique_apps: Number(row[2]),
-    }));
-  });
+  return rows.map((row) => ({
+    logical_date: row.logical_date,
+    total_keys: Number(row.total_keys),
+    unique_apps: Number(row.unique_apps),
+  }));
 }
 
 /**
  * Get app usage breakdown for a date with durations calculated.
  */
-export async function getAppUsageForDate(
+export function getAppUsageForDate(
   logicalDate: string
-): Promise<{ app_name: string; duration_seconds: number; event_count: number }[]> {
-  return withConnection(async (conn) => {
-    // Get events with calculated durations using window functions
-    const result = await conn.run(
-      `
+): { app_name: string; duration_seconds: number; event_count: number }[] {
+  const rows = ensureDb()
+    .query<{ app_name: string; duration_seconds: number; event_count: number }, [string]>(`
       WITH event_durations AS (
-        SELECT 
+        SELECT
           app_name,
           timestamp,
           LEAD(timestamp) OVER (ORDER BY timestamp) as next_timestamp
         FROM window_events
         WHERE logical_date = ?
       )
-      SELECT 
+      SELECT
         app_name,
         SUM(
-          CASE 
-            WHEN next_timestamp IS NOT NULL 
-            THEN EXTRACT(EPOCH FROM (next_timestamp - timestamp))
-            ELSE 0 
+          CASE
+            WHEN next_timestamp IS NOT NULL
+            THEN (unixepoch(next_timestamp) - unixepoch(timestamp))
+            ELSE 0
           END
         ) as duration_seconds,
         COUNT(*) as event_count
       FROM event_durations
       GROUP BY app_name
       ORDER BY duration_seconds DESC
-    `,
-      [logicalDate]
-    );
+    `)
+    .all(logicalDate);
 
-    const rows = await result.getRows();
-
-    return rows.map((row) => ({
-      app_name: String(row[0]),
-      duration_seconds: Number(row[1]),
-      event_count: Number(row[2]),
-    }));
-  });
+  return rows.map((row) => ({
+    app_name: row.app_name,
+    duration_seconds: Number(row.duration_seconds),
+    event_count: Number(row.event_count),
+  }));
 }
 
 export interface CategoryBreakdown {
@@ -357,15 +273,13 @@ export interface CategoryBreakdown {
  * Get category breakdown for a date with durations calculated.
  * Applies category rules from the config to group events.
  */
-export async function getCategoryBreakdownForDate(
+export function getCategoryBreakdownForDate(
   logicalDate: string
-): Promise<CategoryBreakdown[]> {
-  return withConnection(async (conn) => {
-    // Get events with calculated durations
-    const result = await conn.run(
-      `
+): CategoryBreakdown[] {
+  const rows = ensureDb()
+    .query<{ app_name: string; window_title: string | null; duration_seconds: number; event_count: number }, [string]>(`
       WITH event_durations AS (
-        SELECT 
+        SELECT
           app_name,
           window_title,
           timestamp,
@@ -373,168 +287,134 @@ export async function getCategoryBreakdownForDate(
         FROM window_events
         WHERE logical_date = ?
       )
-      SELECT 
+      SELECT
         app_name,
         window_title,
         SUM(
-          CASE 
-            WHEN next_timestamp IS NOT NULL 
-            THEN EXTRACT(EPOCH FROM (next_timestamp - timestamp))
-            ELSE 0 
+          CASE
+            WHEN next_timestamp IS NOT NULL
+            THEN (unixepoch(next_timestamp) - unixepoch(timestamp))
+            ELSE 0
           END
         ) as duration_seconds,
         COUNT(*) as event_count
       FROM event_durations
       GROUP BY app_name, window_title
       ORDER BY duration_seconds DESC
-    `,
-      [logicalDate]
-    );
+    `)
+    .all(logicalDate);
 
-    const rows = await result.getRows();
+  // Group by category
+  const categoryMap: Map<string, { duration: number; count: number; apps: Set<string> }> = new Map();
 
-    // Group by category
-    const categoryMap: Map<string, { duration: number; count: number; apps: Set<string> }> = new Map();
+  for (const row of rows) {
+    const appName = row.app_name;
+    const windowTitle = row.window_title;
+    const duration = Number(row.duration_seconds);
+    const count = Number(row.event_count);
 
-    for (const row of rows) {
-      const appName = String(row[0]);
-      const windowTitle = row[1] ? String(row[1]) : null;
-      const duration = Number(row[2]);
-      const count = Number(row[3]);
+    // Skip locked screen
+    if (appName === "__LOCKEDSCREEN") continue;
 
-      // Skip locked screen
-      if (appName === "__LOCKEDSCREEN") continue;
+    const category = categorizeWindow(appName, windowTitle);
 
-      const category = categorizeWindow(appName, windowTitle);
-      
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, { duration: 0, count: 0, apps: new Set() });
-      }
-      
-      const cat = categoryMap.get(category)!;
-      cat.duration += duration;
-      cat.count += count;
-      cat.apps.add(appName);
+    if (!categoryMap.has(category)) {
+      categoryMap.set(category, { duration: 0, count: 0, apps: new Set() });
     }
 
-    // Convert to array and sort by duration
-    const categories: CategoryBreakdown[] = [];
-    for (const [category, data] of categoryMap) {
-      categories.push({
-        category,
-        duration_seconds: data.duration,
-        event_count: data.count,
-        color: getCategoryColor(category),
-        apps: Array.from(data.apps),
-      });
-    }
-
-    categories.sort((a, b) => b.duration_seconds - a.duration_seconds);
-    return categories;
-  });
-}
-
-/**
- * Helper for write operations - needs write access
- */
-async function withWriteConnection<T>(
-  fn: (conn: DuckDBConnection) => Promise<T>
-): Promise<T> {
-  if (!existsSync(DB_PATH)) {
-    throw new Error(`Database not found: ${DB_PATH}. Run the tracker first to create it.`);
+    const cat = categoryMap.get(category)!;
+    cat.duration += duration;
+    cat.count += count;
+    cat.apps.add(appName);
   }
-  
-  const instance = await DuckDBInstance.create(DB_PATH);
-  const conn = await instance.connect();
-  
-  try {
-    return await fn(conn);
-  } finally {
-    conn.closeSync();
-    instance.closeSync();
+
+  // Convert to array and sort by duration
+  const categories: CategoryBreakdown[] = [];
+  for (const [category, data] of categoryMap) {
+    categories.push({
+      category,
+      duration_seconds: data.duration,
+      event_count: data.count,
+      color: getCategoryColor(category),
+      apps: Array.from(data.apps),
+    });
   }
+
+  categories.sort((a, b) => b.duration_seconds - a.duration_seconds);
+  return categories;
 }
 
 /**
  * Add a note at a specific timestamp.
  */
-export async function addNote(
+export function addNote(
   timestamp: string,
   content: string,
   logicalDate: string
-): Promise<void> {
-  return withWriteConnection(async (conn) => {
-    await conn.run(
-      `
-      INSERT INTO notes (timestamp, content, logical_date)
-      VALUES (?::TIMESTAMP, ?, ?::DATE)
-      ON CONFLICT (timestamp) DO UPDATE SET content = excluded.content
-    `,
-      [timestamp, content, logicalDate]
-    );
-  });
+): void {
+  ensureDb().run(
+    `
+    INSERT INTO notes (timestamp, content, logical_date)
+    VALUES (?, ?, ?)
+    ON CONFLICT (timestamp) DO UPDATE SET content = excluded.content
+  `,
+    [timestamp, content, logicalDate]
+  );
 }
 
 /**
  * Save or update the daily blog.
  */
-export async function saveBlog(
+export function saveBlog(
   logicalDate: string,
   content: string
-): Promise<void> {
-  return withWriteConnection(async (conn) => {
-    await conn.run(
-      `
-      INSERT INTO daily_blog (logical_date, content)
-      VALUES (?::DATE, ?)
-      ON CONFLICT (logical_date) DO UPDATE SET content = excluded.content
-    `,
-      [logicalDate, content]
-    );
-  });
+): void {
+  ensureDb().run(
+    `
+    INSERT INTO daily_blog (logical_date, content)
+    VALUES (?, ?)
+    ON CONFLICT (logical_date) DO UPDATE SET content = excluded.content
+  `,
+    [logicalDate, content]
+  );
 }
 
 /**
  * Get settings from the database.
  */
-export async function getSettings(): Promise<Record<string, unknown>> {
-  return withConnection(async (conn) => {
-    const result = await conn.run(`
+export function getSettings(): Record<string, unknown> {
+  const rows = ensureDb()
+    .query<{ key: string; value: string }, []>(`
       SELECT key, value FROM settings
-    `);
+    `)
+    .all();
 
-    const rows = await result.getRows();
-    const settings: Record<string, unknown> = {};
+  const settings: Record<string, unknown> = {};
 
-    for (const row of rows) {
-      const key = String(row[0]);
-      try {
-        settings[key] = JSON.parse(String(row[1]));
-      } catch {
-        settings[key] = row[1];
-      }
+  for (const row of rows) {
+    try {
+      settings[row.key] = JSON.parse(row.value);
+    } catch {
+      settings[row.key] = row.value;
     }
+  }
 
-    return settings;
-  });
+  return settings;
 }
 
 /**
  * Update a setting.
  */
-export async function updateSetting(
+export function updateSetting(
   key: string,
   value: unknown
-): Promise<void> {
-  return withWriteConnection(async (conn) => {
-    await conn.run(
-      `
-      INSERT INTO settings (key, value)
-      VALUES (?, ?::JSON)
-      ON CONFLICT (key) DO UPDATE SET value = excluded.value
-    `,
-      [key, JSON.stringify(value)]
-    );
-  });
+): void {
+  ensureDb().run(
+    `
+    INSERT INTO settings (key, value)
+    VALUES (?, ?)
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value
+  `,
+    [key, JSON.stringify(value)]
+  );
 }
-

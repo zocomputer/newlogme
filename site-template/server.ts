@@ -57,9 +57,9 @@ app.post("/api/_zo/demo/register", async (c) => {
  * GET /api/ulogme/dates
  * Returns list of available dates with data
  */
-app.get("/api/ulogme/dates", async (c) => {
+app.get("/api/ulogme/dates", (c) => {
   try {
-    const dates = await getAvailableDates();
+    const dates = getAvailableDates();
     return c.json({ dates });
   } catch (error) {
     console.error("Error fetching dates:", error);
@@ -71,10 +71,10 @@ app.get("/api/ulogme/dates", async (c) => {
  * GET /api/ulogme/day/:logicalDate
  * Returns all data for a specific logical date
  */
-app.get("/api/ulogme/day/:logicalDate", async (c) => {
+app.get("/api/ulogme/day/:logicalDate", (c) => {
   try {
     const logicalDate = c.req.param("logicalDate");
-    const data = await getDayData(logicalDate);
+    const data = getDayData(logicalDate);
     return c.json(data);
   } catch (error) {
     console.error("Error fetching day data:", error);
@@ -86,10 +86,10 @@ app.get("/api/ulogme/day/:logicalDate", async (c) => {
  * GET /api/ulogme/day/:logicalDate/apps
  * Returns app usage breakdown with durations for a date
  */
-app.get("/api/ulogme/day/:logicalDate/apps", async (c) => {
+app.get("/api/ulogme/day/:logicalDate/apps", (c) => {
   try {
     const logicalDate = c.req.param("logicalDate");
-    const apps = await getAppUsageForDate(logicalDate);
+    const apps = getAppUsageForDate(logicalDate);
     return c.json({ apps });
   } catch (error) {
     console.error("Error fetching app usage:", error);
@@ -101,10 +101,10 @@ app.get("/api/ulogme/day/:logicalDate/apps", async (c) => {
  * GET /api/ulogme/day/:logicalDate/categories
  * Returns category breakdown with durations for a date
  */
-app.get("/api/ulogme/day/:logicalDate/categories", async (c) => {
+app.get("/api/ulogme/day/:logicalDate/categories", (c) => {
   try {
     const logicalDate = c.req.param("logicalDate");
-    const categories = await getCategoryBreakdownForDate(logicalDate);
+    const categories = getCategoryBreakdownForDate(logicalDate);
     const colors = getAllCategoryColors();
     return c.json({ categories, colors });
   } catch (error) {
@@ -139,7 +139,7 @@ app.get("/api/ulogme/config", (c) => {
  * GET /api/ulogme/overview
  * Returns aggregated stats across a date range
  */
-app.get("/api/ulogme/overview", async (c) => {
+app.get("/api/ulogme/overview", (c) => {
   try {
     const from = c.req.query("from");
     const to = c.req.query("to");
@@ -147,7 +147,7 @@ app.get("/api/ulogme/overview", async (c) => {
     // Default to all data (10000 is effectively unlimited for personal tracking)
     const limit = limitParam ? parseInt(limitParam, 10) : 10000;
 
-    const days = await getOverview(from, to, limit);
+    const days = getOverview(from, to, limit);
     return c.json({ days });
   } catch (error) {
     console.error("Error fetching overview:", error);
@@ -171,7 +171,7 @@ app.post("/api/ulogme/note", async (c) => {
       );
     }
 
-    await addNote(timestamp, content, logical_date);
+    addNote(timestamp, content, logical_date);
     return c.json({ success: true });
   } catch (error) {
     console.error("Error adding note:", error);
@@ -193,7 +193,7 @@ app.put("/api/ulogme/blog/:logicalDate", async (c) => {
       return c.json({ error: "content is required" }, 400);
     }
 
-    await saveBlog(logicalDate, content);
+    saveBlog(logicalDate, content);
     return c.json({ success: true });
   } catch (error) {
     console.error("Error saving blog:", error);
@@ -205,9 +205,9 @@ app.put("/api/ulogme/blog/:logicalDate", async (c) => {
  * GET /api/ulogme/settings
  * Get all settings
  */
-app.get("/api/ulogme/settings", async (c) => {
+app.get("/api/ulogme/settings", (c) => {
   try {
-    const settings = await getSettings();
+    const settings = getSettings();
     return c.json(settings);
   } catch (error) {
     console.error("Error fetching settings:", error);
@@ -224,7 +224,7 @@ app.put("/api/ulogme/settings", async (c) => {
     const body = await c.req.json();
 
     for (const [key, value] of Object.entries(body)) {
-      await updateSetting(key, value);
+      updateSetting(key, value);
     }
 
     return c.json({ success: true });

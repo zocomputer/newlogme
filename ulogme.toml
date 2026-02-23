@@ -21,7 +21,7 @@ hour = 7
 
 [database]
 # Path to the DuckDB database file (relative to this config file's directory)
-path = "data/ulogme.duckdb"
+path = "data/ulogme.db"
 
 [category_mappings]
 # Regex patterns to categorize windows into groups

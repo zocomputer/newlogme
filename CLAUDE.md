@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ulogme is a personal activity tracker for macOS that logs active window titles, keystroke counts (not actual keys), and browser URLs. All data stays local in a DuckDB database. It's a modernization of karpathy/ulogme.
+ulogme is a personal activity tracker for macOS that logs active window titles, keystroke counts (not actual keys), and browser URLs. All data stays local in a SQLite database. It's a modernization of karpathy/ulogme.
 
 **Three main layers:**
 1. **Python Tracker Daemon** (`tracker/`) — Collects data via PyObjC
 2. **TypeScript Backend API** (`site-template/server.ts`) — Serves data via Hono on Bun
 3. **React Dashboard** (`site-template/src/`) — Visualizes via Recharts
 
-**Data flow:** macOS Events → Python Daemon → DuckDB (`data/ulogme.duckdb`) → Hono API → React Dashboard
+**Data flow:** macOS Events → Python Daemon → SQLite (`data/ulogme.db`) → Hono API → React Dashboard
 
 ## Commands
 
@@ -37,8 +37,8 @@ bun run build && bun run prod              # Production build
 ### Query Database Directly
 ```bash
 uv run python -c "
-import duckdb
-conn = duckdb.connect('data/ulogme.duckdb', read_only=True)
+import sqlite3
+conn = sqlite3.connect('data/ulogme.db')
 print(conn.execute('SELECT COUNT(*) FROM window_events').fetchone())
 conn.close()
 "
@@ -58,7 +58,7 @@ conn.close()
 | `daemon.py` | Main event loop, coordinates window polling + keyboard listener |
 | `window.py` | Gets active window via NSWorkspace, extracts browser URLs |
 | `keyboard.py` | Global key event tap via Quartz CGEventTap |
-| `storage.py` | DuckDB schema creation and insert operations |
+| `storage.py` | SQLite storage layer (schema, inserts, queries) |
 | `config.py` | Loads `ulogme.toml`, category matching |
 | `launchd.py` | Generates plist, manages launchctl |
 
@@ -66,7 +66,7 @@ conn.close()
 | File | Purpose |
 |------|---------|
 | `server.ts` | Hono routes, serves API + Vite dev middleware |
-| `backend-lib/ulogme-db.ts` | DuckDB queries, data transformations |
+| `backend-lib/ulogme-db.ts` | SQLite queries via `bun:sqlite`, data transformations |
 | `backend-lib/config.ts` | TOML parsing, category matching (mirrors Python) |
 
 ### React Frontend (`site-template/src/`)
@@ -77,13 +77,13 @@ conn.close()
 | `pages/Settings.tsx` | Configuration UI |
 | `components/ulogme/` | Domain-specific chart components |
 
-### Database Schema (DuckDB)
+### Database Schema (SQLite)
 ```sql
-window_events (id, timestamp, logical_date, app_name, window_title, url)
-key_events (id, timestamp, logical_date, count)
-notes (id, timestamp, logical_date, text)
-daily_blog (logical_date PRIMARY KEY, content)
-settings (key PRIMARY KEY, value JSON)
+window_events (timestamp TEXT, app_name TEXT, window_title TEXT, browser_url TEXT, logical_date TEXT)
+key_events (timestamp TEXT PK, key_count INTEGER, logical_date TEXT)
+notes (timestamp TEXT PK, content TEXT, logical_date TEXT)
+daily_blog (logical_date TEXT PK, content TEXT)
+settings (key TEXT PK, value TEXT)
 ```
 
 The `logical_date` field enables grouping by "work day" rather than calendar day.
@@ -112,5 +112,5 @@ All under `/api/ulogme/`:
 
 - **Tracker not logging:** Run with `--verbose` flag, check `data/tracker.log`
 - **Keystrokes not counting:** Grant Accessibility permission to terminal (foreground) or Python binary (launchd)
-- **Database lock errors:** Stop web server before running direct queries
+- **Database lock errors:** SQLite uses WAL mode for concurrent reads; if locked, check for long-running writers
 - **Service issues:** `launchctl list | grep ulogme` (exit code 0 = running)

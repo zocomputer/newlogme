@@ -36,7 +36,7 @@ class Config:
     day_boundary_hour: int = 7
     
     # Database path
-    db_path: Path = field(default_factory=lambda: Path("data/ulogme.duckdb"))
+    db_path: Path = field(default_factory=lambda: Path("data/ulogme.db"))
     
     # Category mappings
     category_rules: list[CategoryRule] = field(default_factory=list)
@@ -125,7 +125,7 @@ def parse_config(data: dict[str, Any], base_dir: Path) -> Config:
         window_poll_interval=tracking.get("window_poll_interval", 2.0),
         keystroke_window=tracking.get("keystroke_window", 9.0),
         day_boundary_hour=day_boundary.get("hour", 7),
-        db_path=Path(database.get("path", "data/ulogme.duckdb")),
+        db_path=Path(database.get("path", "data/ulogme.db")),
         category_rules=rules,
         hacking_categories=hacking.get("categories", ["Coding", "Terminal"]),
         base_dir=base_dir,

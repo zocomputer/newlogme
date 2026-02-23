@@ -5,7 +5,6 @@ description = "Modern activity tracker for macOS - tracks active windows and key
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "duckdb>=1.1.0",
     "pyobjc-framework-Cocoa>=10.0",
     "pyobjc-framework-Quartz>=10.0",
 ]
