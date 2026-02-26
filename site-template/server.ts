@@ -254,7 +254,7 @@ const port =
     ? (config.publish?.published_port ?? config.local_port)
     : config.local_port;
 
-export default { fetch: app.fetch, port, idleTimeout: 255 };
+export default { fetch: app.fetch, port, hostname: "127.0.0.1", idleTimeout: 255 };
 
 /**
  * Configure routing for production builds.

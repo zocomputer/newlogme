@@ -24,6 +24,9 @@ uv run python -m tracker stop              # Stop running tracker
 uv run python -m tracker status            # Check if running
 uv run python -m tracker install           # Install as launchd service
 uv run python -m tracker uninstall         # Remove launchd service
+uv run python -m tracker install-server    # Install web server as launchd service
+uv run python -m tracker uninstall-server  # Remove web server launchd service
+uv run python -m tracker server-status     # Check web server service status
 ```
 
 ### Web Dashboard (TypeScript/React)
@@ -32,6 +35,19 @@ cd site-template/
 bun install                                # Install dependencies
 bun run dev                                # Dev server at http://localhost:5173
 bun run build && bun run prod              # Production build
+```
+
+### Deploy as macOS Services (Auto-start on Login)
+```bash
+./deploy.sh                                    # Deploy full stack (one-time setup)
+
+# Individual service management
+uv run python -m tracker install               # Install tracker service
+uv run python -m tracker install-server        # Install web server service
+uv run python -m tracker uninstall             # Remove tracker service
+uv run python -m tracker uninstall-server      # Remove web server service
+uv run python -m tracker status                # Tracker + launchd status
+uv run python -m tracker server-status         # Web server launchd status
 ```
 
 ### Query Database Directly
