@@ -1,7 +1,7 @@
 ---
 title: "feat: Deploy ulogme as persistent macOS services"
 type: feat
-status: active
+status: completed
 date: 2026-02-26
 deepened: 2026-02-26
 ---
